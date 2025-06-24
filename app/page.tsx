@@ -266,6 +266,56 @@ export default function DashboardConChatFuncional() {
             </div>
           </div>
 
+{/* Dashboard Todos - Comparativo Caña + Soja */}
+          {filtroActivo === 'todos' && (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
+                <Wheat className="h-4 w-4 text-slate-600 mr-2" />
+                Comparativo por Cultivo
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Caña */}
+                <div className="border border-green-200 rounded-lg p-3 bg-green-50">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">🌾 Caña de Azúcar</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">TCH</p>
+                      <p className="text-lg font-bold text-green-700">85.2</p>
+                    </div>
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">Hectáreas</p>
+                      <p className="text-lg font-bold text-green-700">45.6 Ha</p>
+                    </div>
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">Estado</p>
+                      <p className="text-sm font-medium text-green-700">En zafra</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Soja */}
+                <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
+                  <h4 className="text-sm font-medium text-amber-800 mb-2">🌱 Soja</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">Rendimiento</p>
+                      <p className="text-lg font-bold text-amber-700">2.8 Tn/Ha</p>
+                    </div>
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">Hectáreas</p>
+                      <p className="text-lg font-bold text-amber-700">30.3 Ha</p>
+                    </div>
+                    <div className="bg-white p-2 rounded text-center">
+                      <p className="text-xs text-slate-600">Estado</p>
+                      <p className="text-sm font-medium text-amber-700">Cosechada</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
 {/* Dashboard Solo Caña - Agregado incrementalmente */}
           {filtroActivo === 'cana' && (
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
