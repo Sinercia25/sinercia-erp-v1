@@ -266,6 +266,23 @@ export default function DashboardConChatFuncional() {
             </div>
           </div>
 
+{/* Dashboard Solo Caña - Agregado incrementalmente */}
+          {filtroActivo === 'cana' && (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="text-sm font-semibold text-green-700 mb-3">🌾 Métricas de Caña</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700">TCH Promedio</p>
+                  <p className="text-lg font-bold text-green-800">85.2</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700">Lotes Activos</p>
+                  <p className="text-lg font-bold text-green-800">2</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Información de Uso del Chat */}
           <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border border-green-100">
             <h3 className="text-lg font-semibold text-slate-800 mb-2">🤖 Chat IA con Datos Reales Activo</h3>
