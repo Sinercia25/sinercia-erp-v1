@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// CORE SYSTEM
+// ================================
+
+model Empresa {
+  id               String   @id @default(cuid())
+  nombre           String
+  cuit             String   @unique
+  condicionFiscal  String
+  direccion        String?
+  telefono         String?
+  email            String?
+  industria        String   @default("agro_cana")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relaciones
+  usuarios         Usuario[]
+  lotes            Lote[]
+  campanas         Campana[]
+  maquinas         Maquina[]
+  depositos        Deposito[]
+  productos        Producto[]
+  cheques          Cheque[]
+  transacciones    Transaccion[]
+  liquidaciones    LiquidacionIngenio[]
+
+  @@map("empresas")
+}
+
+model Usuario {
+  id          String    @id @default(cuid())
+  empresaId   String
+  email       String    @unique
+  nombre      String
+  apellido    String
+  rol         String
+  activo      Boolean   @default(true)
+  ultimoLogin DateTime?
+  createdAt   DateTime  @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@map("usuarios")
+}
+
+// ================================
+// LOTES Y PRODUCCIÓN
+// ================================
+
+model Lote {
+  id                   String   @id @default(cuid())
+  empresaId            String
+  numero               String
+  nombre               String?
+  superficieHectareas  Float
+  ubicacionGps         String?
+  tipoSuelo           String?
+  descripcion         String?
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  empresa   Empresa   @relation(fields: [empresaId], references: [id])
+  cultivos  Cultivo[]
+  trabajos  TrabajoMaquina[]
+
+  @@unique([empresaId, numero])
+  @@map("lotes")
+}
+
+model Campana {
+  id           String    @id @default(cuid())
+  empresaId    String
+  nombre       String
+  fechaInicio  DateTime
+  fechaFin     DateTime?
+  activa       Boolean   @default(true)
+  observaciones String?
+  createdAt    DateTime  @default(now())
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id])
+  cultivos Cultivo[]
+
+  @@map("campanas")
+}
+
+model Cultivo {
+  id                     String    @id @default(cuid())
+  empresaId              String
+  loteId                 String
+  campanaId              String
+  tipoCultivo            String
+  variedad               String
+  fechaSiembra           DateTime?
+  fechaCosechaEstimada   DateTime?
+  estado                 String    @default("sembrado")
+  observaciones          String?
+  createdAt              DateTime  @default(now())
+
+  lote     Lote              @relation(fields: [loteId], references: [id])
+  campana  Campana           @relation(fields: [campanaId], references: [id])
+  cosechas Cosecha[]
+
+  @@map("cultivos")
+}
+
+model Cosecha {
+  id                    String   @id @default(cuid())
+  empresaId             String
+  cultivoId             String
+  fecha                 DateTime
+  toneladas             Float
+  superficieCosechada   Float
+  tch                   Float?
+  clienteServicio       String?
+  precioPorTonelada     Float?
+  totalFacturado        Float?
+  observaciones         String?
+  createdAt             DateTime @default(now())
+
+  cultivo Cultivo @relation(fields: [cultivoId], references: [id])
+
+  @@map("cosechas")
+}
+
+// ================================
+// MAQUINARIA
+// ================================
+
+model Maquina {
+  id              String   @id @default(cuid())
+  empresaId       String
+  nombre          String
+  tipo            String
+  marca           String?
+  modelo          String?
+  ano             Int?
+  numeroSerie     String?
+  ubicacionActual String?
+  estado          String   @default("disponible")
+  activa          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  empresa  Empresa          @relation(fields: [empresaId], references: [id])
+  trabajos TrabajoMaquina[]
+
+  @@map("maquinas")
+}
+
+model TrabajoMaquina {
+  id                   String    @id @default(cuid())
+  empresaId            String
+  maquinaId            String
+  loteId               String?
+  tipoTrabajo          String
+  fecha                DateTime
+  horaInicio           String?
+  horaFin              String?
+  horasTrabajadas      Float?
+  combustibleLitros    Float?
+  costoCombustible     Float?
+  esServicioTerceros   Boolean   @default(false)
+  clienteTercero       String?
+  tarifaPorHora        Float?
+  totalFacturado       Float?
+  observaciones        String?
+  createdAt            DateTime  @default(now())
+
+  maquina Maquina @relation(fields: [maquinaId], references: [id])
+  lote    Lote?   @relation(fields: [loteId], references: [id])
+
+  @@map("trabajos_maquina")
+}
+
+// ================================
+// INVENTARIO
+// ================================
+
+model Deposito {
+  id        String   @id @default(cuid())
+  empresaId String
+  nombre    String
+  ubicacion String?
+  tipo      String   @default("general")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  empresa        Empresa         @relation(fields: [empresaId], references: [id])
+  stockProductos StockProducto[]
+
+  @@map("depositos")
+}
+
+model Producto {
+  id            String   @id @default(cuid())
+  empresaId     String
+  codigo        String?
+  nombre        String
+  categoria     String
+  unidadMedida  String
+  precioCosto   Float?
+  stockMinimo   Float?
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  empresa            Empresa            @relation(fields: [empresaId], references: [id])
+  stockProductos     StockProducto[]
+  movimientosStock   MovimientoStock[]
+
+  @@unique([empresaId, codigo])
+  @@map("productos")
+}
+
+model StockProducto {
+  id         String   @id @default(cuid())
+  empresaId  String
+  productoId String
+  depositoId String
+  cantidad   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+
+  producto Producto @relation(fields: [productoId], references: [id])
+  deposito Deposito @relation(fields: [depositoId], references: [id])
+
+  @@unique([productoId, depositoId])
+  @@map("stock_productos")
+}
+
+model MovimientoStock {
+  id               String    @id @default(cuid())
+  empresaId        String
+  productoId       String
+  depositoId       String
+  tipoMovimiento   String
+  cantidad         Float
+  precioUnitario   Float?
+  motivo           String?
+  loteId           String?
+  trabajoMaquinaId String?
+  facturaNumero    String?
+  observaciones    String?
+  createdAt        DateTime  @default(now())
+
+  producto Producto @relation(fields: [productoId], references: [id])
+
+  @@map("movimientos_stock")
+}
+
+// ================================
+// FINANZAS
+// ================================
+
+model Cheque {
+  id               String    @id @default(cuid())
+  empresaId        String
+  numero           String
+  banco            String
+  tipo             String
+  importe          Float
+  fechaEmision     DateTime
+  fechaVencimiento DateTime
+  estado           String    @default("pendiente")
+  librador         String?
+  beneficiario     String?
+  concepto         String?
+  numeroCuenta     String?
+  fechaDeposito    DateTime?
+  observaciones    String?
+  createdAt        DateTime  @default(now())
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id])
+  transacciones Transaccion[]
+
+  @@map("cheques")
+}
+
+model Transaccion {
+  id               String    @id @default(cuid())
+  empresaId        String
+  tipo             String
+  categoria        String
+  descripcion      String
+  importe          Float
+  fecha            DateTime
+  metodoPago       String?
+  chequeId         String?
+  cosechaId        String?
+  trabajoMaquinaId String?
+  facturaNumero    String?
+  comprobanteAfip  String?
+  observaciones    String?
+  createdAt        DateTime  @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  cheque  Cheque? @relation(fields: [chequeId], references: [id])
+
+  @@map("transacciones")
+}
+
+// ================================
+// INGENIO
+// ================================
+
+model LiquidacionIngenio {
+  id                 String   @id @default(cuid())
+  empresaId          String
+  ingenioNombre      String
+  numeroLiquidacion  String?
+  fechaLiquidacion   DateTime
+  periodoInicio      DateTime
+  periodoFin         DateTime
+  toneladasLiquidadas Float
+  precioPorTonelada  Float
+  totalBruto         Float
+  deducciones        Float    @default(0)
+  totalNeto          Float
+  estado             String   @default("pendiente")
+  observaciones      String?
+  createdAt          DateTime @default(now())
+
+  empresa  Empresa           @relation(fields: [empresaId], references: [id])
+  entregas EntregaIngenio[]
+
+  @@map("liquidaciones_ingenio")
+}
+
+model EntregaIngenio {
+  id                   String   @id @default(cuid())
+  empresaId            String
+  liquidacionId        String?
+  cosechaId            String
+  fechaEntrega         DateTime
+  toneladasEntregadas  Float
+  numeroGuia           String?
+  conciliado           Boolean  @default(false)
+  diferenciaToneladas  Float    @default(0)
+  observaciones        String?
+  createdAt            DateTime @default(now())
+
+  liquidacion LiquidacionIngenio? @relation(fields: [liquidacionId], references: [id])
+
+  @@map("entregas_ingenio")
+}
