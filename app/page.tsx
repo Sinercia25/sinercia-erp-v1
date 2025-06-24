@@ -283,6 +283,23 @@ export default function DashboardConChatFuncional() {
             </div>
           )}
 
+          {/* Dashboard Solo Soja - Agregado incrementalmente */}
+          {filtroActivo === 'soja' && (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="text-sm font-semibold text-amber-700 mb-3">🌱 Métricas de Soja</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-amber-50 rounded-lg">
+                  <p className="text-xs text-amber-700">Rendimiento</p>
+                  <p className="text-lg font-bold text-amber-800">2.8 Tn/Ha</p>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-lg">
+                  <p className="text-xs text-amber-700">Hectáreas</p>
+                  <p className="text-lg font-bold text-amber-800">30.3 Ha</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Información de Uso del Chat */}
           <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border border-green-100">
             <h3 className="text-lg font-semibold text-slate-800 mb-2">🤖 Chat IA con Datos Reales Activo</h3>
