@@ -390,7 +390,7 @@ export default function DashboardConChatFuncional() {
                   <MessageCircle className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white">SinercIA Chat</h3>
+                  <h3 className="font-bold text-white">CEO CHAT</h3>
                   <p className="text-xs text-slate-300">IA con datos reales</p>
                 </div>
               </div>
