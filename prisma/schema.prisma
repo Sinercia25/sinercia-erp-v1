@@ -15,7 +15,7 @@ model Empresa {
   id               String   @id @default(cuid())
   nombre           String
   cuit             String   @unique
-  condicionFiscal  String
+  condicionFiscal  String   @map("condicionfiscal")
   direccion        String?
   telefono         String?
   email            String?
@@ -59,22 +59,21 @@ model Usuario {
 
 model Lote {
   id                   String   @id @default(cuid())
-  empresaId            String
+  empresaId            String   @map("empresa_id")
   numero               String
   nombre               String?
-  superficieHectareas  Float
-  ubicacionGps         String?
-  tipoSuelo           String?
+  superficieHectareas  Float    @map("superficie_hectareas")
+  ubicacionGps         String?  @map("ubicacionGps")
+  tipoSuelo           String?   @map("tipo_suelo") 
   descripcion         String?
   activo              Boolean  @default(true)
   createdAt           DateTime @default(now())
-
   empresa   Empresa   @relation(fields: [empresaId], references: [id])
   cultivos  Cultivo[]
   trabajos  TrabajoMaquina[]
 
   @@unique([empresaId, numero])
-  @@map("lotes")
+  @@map("lotes")//
 }
 
 model Campana {

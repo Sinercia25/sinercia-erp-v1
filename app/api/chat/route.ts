@@ -11,39 +11,25 @@ const prisma = new PrismaClient()
 // Función para obtener contexto de la base de datos
 async function obtenerContextoEmpresa() {
   try {
+  
+
     // Obtener datos básicos de la empresa
-    const empresa = await prisma.empresa.findFirst({
-      include: {
-        usuarios: true,
-        lotes: {
-          include: {
-            cultivos: {
-              include: {
-                cosechas: true
-              }
-            }
-          }
-        },
-        maquinas: {
-          include: {
-            trabajos: {
-              take: 10,
-              orderBy: { fecha: 'desc' }
-            }
-          }
-        },
-        productos: true,
-        cheques: {
-          where: {
-            estado: 'pendiente'
-          },
-          orderBy: { fechaVencimiento: 'asc' }
-        }
-      }
-    })
+    console.log('🔍 Iniciando búsqueda de empresa...')
+console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL?.substring(0, 50) + '...')
 
-    if (!empresa) return "No hay datos de empresa disponibles."
+  const empresaCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM empresas`
+const lotesCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM lotes`
 
+console.log('🏢 Empresas encontradas:', empresaCount[0]?.count || 0)
+console.log('🏢 Cantidad de lotes:', lotesCount[0]?.count || 0)
+
+// Respuesta simple
+return `Tienes ${lotesCount[0]?.count || 0} lotes en total.`
+   
+if (!empresa) {
+  console.log('❌ No se encontró empresa en la base de datos')
+  return "No hay datos de empresa disponibles."
+}
     // Calcular métricas
     const totalCosechas = empresa.lotes.reduce((total, lote) => {
       return total + lote.cultivos.reduce((subtotal, cultivo) => {
@@ -102,7 +88,6 @@ ${empresa.cheques.map(cheque => `
     return "Error al obtener datos de la empresa."
   }
 }
-
 export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json()
