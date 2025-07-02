@@ -1,11 +1,11 @@
 'use client'
 
 import { 
-  Tractor, DollarSign, Users, BarChart3, AlertTriangle,
-  ShoppingCart, Package, Wrench, Calculator, Wheat, UserPlus, Building,
-  MessageCircle, Send, Mic, Sun, Droplets, Wind, TrendingUp,
+  Tractor, DollarSign, Users, BarChart3,
+  ShoppingCart, Package, Wrench, Calculator, Wheat, UserPlus,
+  MessageCircle, Send, Sun, Droplets, Wind, TrendingUp,
   Activity, MapPin, Fuel, Bell, X, ChevronLeft, ChevronRight,
-  Search, HelpCircle, ChevronDown, Home, Settings
+  Search, HelpCircle, Settings
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 

@@ -126,7 +126,7 @@ async function obtenerContextoEmpresa() {
 async function obtenerLotesDetallados() {
   try {
     const lotes = await prisma.lote.findMany({
-      where: { empresaId: 'laramada' },
+  where: { empresaId: 'emp_001' },
       select: {
         numero: true,
         nombre: true,
@@ -177,7 +177,7 @@ async function obtenerDatosFinancieros() {
     // 1. TRANSACCIONES DETALLADAS DEL MES
     const transaccionesMes = await prisma.transaccion.findMany({
       where: {
-        empresaId: 'laramada',
+        empresaId: 'emp_001',
         fecha: {
           gte: inicioMes,
           lte: finMes
@@ -198,7 +198,7 @@ async function obtenerDatosFinancieros() {
     const analisisCategorias = await prisma.transaccion.groupBy({
       by: ['categoria', 'tipo'],
       where: {
-        empresaId: 'laramada',
+        empresaId: 'emp_001',
         fecha: {
           gte: inicioMes,
           lte: finMes
@@ -215,7 +215,7 @@ async function obtenerDatosFinancieros() {
     // 3. CHEQUES DETALLADOS
     const chequesDetalle = await prisma.cheque.findMany({
       where: {
-        empresaId: 'laramada'
+        empresaId: 'emp_001'
       },
       select: {
         numero: true,
@@ -233,7 +233,7 @@ async function obtenerDatosFinancieros() {
     
     // 4. LIQUIDACIONES RECIENTES
     const liquidacionesRecientes = await prisma.liquidacion_ingenio.findMany({
-      where: { empresaId: 'laramada' },
+      where: { empresaId: 'emp_001' },
       select: {
         ingenioNombre: true,
         fechaLiquidacion: true,
@@ -251,7 +251,7 @@ async function obtenerDatosFinancieros() {
     // 5. ANÁLISIS DEL AÑO
     const transaccionesAno = await prisma.transaccion.aggregate({
       where: {
-        empresaId: 'laramada',
+        empresaId: 'emp_001',
         fecha: {
           gte: inicioAno
         }
@@ -521,12 +521,7 @@ function clasificarConsulta(mensaje: string) {
 
 async function guardarSnapshotEmergencia(data) {
   try {
-    const snapshotData = {
-      timestamp: new Date().toISOString(),
-      data,
-      source: 'tiempo_real'
-    }
-    
+    // Snapshot para emergencias futuras - solo logging por ahora
     console.log('💾 Snapshot de emergencia guardado exitosamente')
   } catch {
     console.log('⚠️ No se pudo guardar snapshot')
