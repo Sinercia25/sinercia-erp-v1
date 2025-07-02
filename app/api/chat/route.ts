@@ -77,10 +77,7 @@ async function obtenerContextoEmpresa() {
     const responseTime = Date.now() - startTime
 
     // GUARDAR SNAPSHOT para emergencias futuras
-    await guardarSnapshotEmergencia(
-      lotesCount, maquinasCount, transaccionesCount, superficieTotal,
-      timestamp: new Date().toISOString()
-    )
+    await guardarSnapshotEmergencia()
 
     return `EMPRESA: LA RAMADA S.A. - DATOS ACTUALIZADOS EN TIEMPO REAL ⚡
 
