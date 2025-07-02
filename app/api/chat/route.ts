@@ -38,14 +38,17 @@ async function obtenerContextoEmpresa() {
     const countLaramada = await prisma.lote.count({ where: { empresaId: 'laramada' } })
     const countLaRamada = await prisma.lote.count({ where: { empresaId: 'La Ramada' } })
     const countLaRamadaSA = await prisma.lote.count({ where: { empresaId: 'La Ramada S.A.' } })
-    
+    const countEmp001 = await prisma.lote.count({ where: { empresaId: 'emp_001' } })
+
     console.log('🔍 Conteos por empresaId:')
     console.log('  - laramada:', countLaramada)
     console.log('  - La Ramada:', countLaRamada)
+    console.log('  - emp_001:', countEmp001)
     console.log('  - La Ramada S.A.:', countLaRamadaSA)
     
     // DATOS EN TIEMPO REAL - usar el ID correcto
     let empresaIdCorrecta = 'laramada'
+    if (countEmp001 > 0) empresaIdCorrecta = 'emp_001'
     if (countLaRamada > 0) empresaIdCorrecta = 'La Ramada'
     if (countLaRamadaSA > 0) empresaIdCorrecta = 'La Ramada S.A.'
     
@@ -141,9 +144,9 @@ async function obtenerLotesDetallados() {
     const totalSuperficie = lotes.reduce((sum, lote) => sum + lote.superficie_hectareas, 0)
     const lotesActivos = lotes.filter(lote => lote.activo).length
 
-    let listadoLotes = lotes.map(lote => 
-      `• **${lote.numero}** - ${lote.nombre || 'Sin nombre'} (${lote.superficie_hectareas}ha) ${lote.activo ? '✅' : '❌'}`
-    ).join('\n')
+    const listadoLotes = lotes.map(lote => {
+    return `• **${lote.numero}** - ${lote.nombre || 'Sin nombre'} (${lote.superficie_hectareas}ha) ${lote.activo ? '✅' : '❌'}`
+}).join('\n')
 
     return `📊 **LOTES REGISTRADOS:**
 
@@ -518,18 +521,17 @@ function clasificarConsulta(mensaje: string) {
 
 async function guardarSnapshotEmergencia(data) {
   try {
-    const snapshot = {
+    const snapshotData = {
       timestamp: new Date().toISOString(),
       data,
       source: 'tiempo_real'
     }
     
     console.log('💾 Snapshot de emergencia guardado exitosamente')
-  } catch (error) {
-    console.log('⚠️ No se pudo guardar snapshot:',error instanceof Error ? error.message : String(error))
+  } catch {
+    console.log('⚠️ No se pudo guardar snapshot')
   }
 }
-
 async function cargarSnapshotEmergencia() {
   try {
     return {
@@ -543,7 +545,7 @@ async function cargarSnapshotEmergencia() {
       },
       source: 'hardcoded_fallback'
     }
-  } catch (error) {
+  } catch {
     return {
       timestamp: new Date(Date.now() - 12*60*60*1000).toISOString(),
       data: {
