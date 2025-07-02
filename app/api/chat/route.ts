@@ -77,10 +77,10 @@ async function obtenerContextoEmpresa() {
     const responseTime = Date.now() - startTime
 
     // GUARDAR SNAPSHOT para emergencias futuras
-    await guardarSnapshotEmergencia({
+    await guardarSnapshotEmergencia(
       lotesCount, maquinasCount, transaccionesCount, superficieTotal,
       timestamp: new Date().toISOString()
-    })
+    )
 
     return `EMPRESA: LA RAMADA S.A. - DATOS ACTUALIZADOS EN TIEMPO REAL ⚡
 
@@ -519,7 +519,7 @@ function clasificarConsulta(mensaje: string) {
   }
 }
 
-async function guardarSnapshotEmergencia(data) {
+async function guardarSnapshotEmergencia() {
   try {
     // Snapshot para emergencias futuras - solo logging por ahora
     console.log('💾 Snapshot de emergencia guardado exitosamente')
