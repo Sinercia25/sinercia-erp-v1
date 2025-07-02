@@ -924,14 +924,14 @@ export default function SinercIAVerticalMenu() {
                         onClick={() => usarEjemplo("¿Cuántos lotes tengo en total?")}
                         className="w-full text-left p-2 bg-slate-600 hover:bg-slate-500 rounded text-xs text-white transition-colors"
                       >
-                        "¿Cuántos lotes tengo en total?"
+                        &quot;¿Cuántos lotes tengo en total?&quot;
                       </button>
                       
                       <button 
                         onClick={() => usarEjemplo("¿Qué máquinas están disponibles?")}
                         className="w-full text-left p-2 bg-slate-600 hover:bg-slate-500 rounded text-xs text-white transition-colors"
                       >
-                        "¿Qué máquinas están disponibles?"
+                        &quot;¿Qué máquinas están disponibles?&quot;
                       </button>
                     </div>
                   )}
