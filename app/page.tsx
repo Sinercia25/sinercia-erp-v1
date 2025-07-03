@@ -396,7 +396,7 @@ export default function SinercIAVerticalMenu() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat-premium', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
