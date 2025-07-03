@@ -681,3 +681,38 @@ ${contextoEmpresa}${contextoEspecifico}${contextoFinanciero}
     )
   }
 }
+// Test temporal para Data Warehouse
+export async function GET() {
+  try {
+    console.log('🔄 Probando conexión al Data Warehouse...')
+    
+    // Test con nueva conexión
+    const { Pool } = require('pg')
+    const pool = new Pool({
+      host: '207.154.218.252',
+      port: 5432,
+      database: 'erp_datawarehouse',
+      user: 'erpuser',
+      password: 'ERP2025!DataBase#Prod',
+      ssl: false
+    })
+    
+    const result = await pool.query('SELECT NOW() as current_time')
+    console.log('✅ Data Warehouse conectado!')
+    
+    await pool.end()
+    
+    return Response.json({ 
+      success: true, 
+      message: 'Data Warehouse funcionando',
+      time: result.rows[0].current_time 
+    })
+    
+  } catch (error) {
+    console.error('❌ Error:', error.message)
+    return Response.json({ 
+      success: false, 
+      error: error.message 
+    })
+  }
+}
