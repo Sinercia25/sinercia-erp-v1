@@ -174,7 +174,14 @@ async function obtenerDatosFinancieros() {
             const inicioAno = new Date(ahora.getFullYear(), 0, 1)
 
             // 1. TRANSACCIONES DETALLADAS DEL MES
-            const transaccionesMes = await prisma.transaccion.findMany({
+
+            // DIAGNÓSTICO: Ver qué fechas está buscando
+console.log('🔍 FECHAS BUSCANDO:')
+console.log('Inicio mes:', inicioMes)
+console.log('Fin mes:', finMes)
+console.log('Empresa ID:', 'emp_001')
+
+const transaccionesMes = await prisma.transaccion.findMany({
                   where: {
                         empresaId: 'emp_001',
                         fecha: {
