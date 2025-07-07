@@ -74,9 +74,12 @@ export class ConversationMemoryManager {
     if (msg.includes('lotes') || msg.includes('hectáreas') || msg.includes('campo')) {
       return 'lotes'
     }
-    if (msg.includes('máquina') || msg.includes('tractor') || msg.includes('implemento')) {
-      return 'maquinas'
-    }
+  if (msg.includes('máquina') || msg.includes('maquina') || msg.includes('maquinas') ||
+    msg.includes('tractor') || msg.includes('tractores') || msg.includes('implemento') ||
+    msg.includes('equipos') || msg.includes('equipo') || msg.includes('cosechadora') ||
+    msg.includes('cuanta maquina') || msg.includes('cuantas maquina')) {
+  return 'maquinas'
+   }
     if (msg.includes('empleado') || msg.includes('personal') || msg.includes('sueldo')) {
       return 'personal'
     }

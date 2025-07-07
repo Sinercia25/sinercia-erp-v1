@@ -349,3 +349,22 @@ model EntregaIngenio {
 
   @@map("entregas_ingenio")
 }
+
+model DiccionarioAprendizaje {
+  id              String   @id @default(cuid())
+  palabra         String   // Palabra desconocida
+  categoria       String?  // maquinaria, financiero, operativo
+  industria       String   // agro, retail, servicios, salud
+  sinonimo        String?  // palabra conocida equivalente
+  definicion      String?  // qué significa
+  contexto        String?  // frase completa donde se usó
+  confianza       Int      @default(1) // 1-100%
+  usos_exitosos   Int      @default(0)
+  validado_usuario Boolean @default(false)
+  empresa_id      String   // específico por cliente
+  usuario_id      String   // quién la enseñó
+  fecha_aprendido DateTime @default(now())
+  activo          Boolean  @default(true)
+
+  @@map("diccionario_aprendizaje")
+}
