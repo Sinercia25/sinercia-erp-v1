@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 // ================================
 // CORE SYSTEM
 // ================================
@@ -15,6 +16,9 @@ model Empresa {
   id               String   @id @default(cuid())
   nombre           String
   cuit             String   @unique
+  supabaseId       String   @unique    // el ID que usas en Supabase
+  dataWarehouseId  String               // el slug o nombre de tu esquema en el DWH
+  sector           String               // “agro”, “servicios”, “comercio”, etc.
   condicionFiscal  String   @map("condicionfiscal")
   direccion        String?
   telefono         String?
@@ -303,6 +307,14 @@ model Transaccion {
   cheque  Cheque? @relation(fields: [chequeId], references: [id])
 
   @@map("transacciones")
+}
+
+// Añade justo al final del archivo:
+enum transaccion_tipo {
+
+ingreso
+
+egreso
 }
 
 // ================================

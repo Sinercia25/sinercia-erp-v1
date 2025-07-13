@@ -1,6 +1,6 @@
 // 🏢 TÍTULO PRINCIPAL: SINERCIA ERP - CHAT IA EMPRESARIAL COMPLETO Y CORREGIDO
 // 📝 DESCRIPCIÓN GENERAL: Versión COMPLETA corregida que usa los nombres exactos del schema
-//    Incluye TODAS las funciones del original + correcciones de campos
+//  En r
 
 // 🔧 TÍTULO: IMPORTACIÓN DE LIBRERÍAS NECESARIAS
 import { ConversationMemoryManager } from '../../../lib/conversation-memory'
