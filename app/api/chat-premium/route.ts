@@ -57,54 +57,6 @@ sector: rows[0].industria
 }
 
 
-// 🔢 CONSULTA RESUMEN MENSUAL desde el DWH
-async function consultarResumenMensual(empresa_id: string, mes: number, año: number) {
-const ventasSQL = `
-SELECT SUM(total::numeric) AS total_ventas
-FROM facturas
-WHERE empresa_id = $1
-AND fecha_emision >= DATE '${año}-${mes}-01'
-AND fecha_emision < DATE '${año}-${mes}-01' + INTERVAL '1 month'
-`;
-
-const transaccionesSQL = `
-SELECT
-SUM(CASE WHEN tipo = 'INGRESO' THEN importe ELSE 0 END) AS total_ingresos,
-SUM(CASE WHEN tipo = 'EGRESO' THEN importe ELSE 0 END) AS total_egresos,
-COUNT(*) AS total_transacciones,
-SUM(importe) AS total_importe_transacciones
-FROM transacciones
-WHERE empresa_id = $1
-AND fecha >= DATE '${año}-${mes}-01'
-AND fecha <  DATE '${año}-${mes}-01' + INTERVAL '1 month'
-`;
-
-const ventasResult = await dwhPool.query(ventasSQL, [empresa_id])
-const transaccionesResult = await dwhPool.query(transaccionesSQL, [empresa_id])
-
-const total_ventas = parseFloat(ventasResult.rows[0]?.total_ventas || '0')
-console.log('✅ total_ventas procesado:', total_ventas)
-
-const fila = transaccionesResult.rows[0] || {
-total_transacciones: 0,
-total_importe_transacciones: 0,
-total_ingresos: 0,
-total_egresos: 0
-}
-
-return {
-mes,
-anio: año,
-total_ventas,
-total_ingresos: parseFloat(fila.total_ingresos ?? '0'),
-total_egresos: parseFloat(fila.total_egresos ?? '0'),
-total_transacciones: parseInt(fila.total_transacciones ?? '0'),
-total_importe_transacciones: parseFloat(fila.total_importe_transacciones ?? '0'),
-resumen: `Durante el mes de ${new Date(año, mes - 1).toLocaleString('es-AR', { month: 'long' }).toUpperCase()} ${año}, se registraron ventas por $${(total_ventas / 1e6).toFixed(2)}M, ingresos por $${(fila.total_ingresos / 1e6).toFixed(2)}M y egresos por $${(fila.total_egresos / 1e6).toFixed(2)}M.`
-}
-}
-
-
 // 🧠 INTERPRETACIÓN TEMPORAL EXTENDIDA v1.3 - incluye "desde...hasta" y mejora detección de nombres de meses como "julio"
 export type PeriodoDetectado = {
 tipo: 'dia' | 'semana' | 'mes' | 'trimestre' | 'año' | 'decada' | 'rango',
@@ -244,86 +196,75 @@ descripcion: `los últimos ${n} años`
 
 return null
 }
+// 🧠 Detecta qué temas hay en el mensaje del usuario
+function detectarTemas(texto: string): string[] {
+  texto = texto.toLowerCase();
+  const temas: string[] = [];
+
+  if (/venta|factura/.test(texto)) temas.push("ventas");
+  if (/ingreso|egreso|caja|flujo/.test(texto)) temas.push("finanzas");
+  if (/personal|empleado|rrhh|sueldo/.test(texto)) temas.push("rrhh");
+  if (/maquina|mantenimiento|tractor/.test(texto)) temas.push("maquinaria");
+  if (/campo|lote|siembra|cosecha/.test(texto)) temas.push("campo");
+  if (/cheque/.test(texto)) temas.push("cheques");
+
+  return temas;
+}
+
+// 🧩 Bloque de consulta de ventas usando rango extendido
+async function consultarVentas(empresa_id: string, mensaje: string): Promise<string> {
+  const periodo = interpretarTiempoExtendido(mensaje);
+  if (!periodo) return '❌ No se pudo detectar el periodo temporal';
+
+  const sql = `
+    SELECT SUM(total::numeric) AS total_ventas
+    FROM facturas
+    WHERE empresa_id = $1
+      AND fecha_emision >= $2
+      AND fecha_emision < $3
+  `;
+
+  const { rows } = await dwhPool.query(sql, [
+    empresa_id,
+    periodo.inicio.toISOString(),
+    periodo.fin.toISOString()
+  ]);
+
+  const total = parseFloat(rows[0]?.total_ventas || '0');
+  return `💰 **Ventas en ${periodo.descripcion.toUpperCase()}:** $${(total / 1e6).toFixed(2)}M`;
+}
+
+// 🔀 Ejecuta solo el bloque necesario según el tema detectado
+async function ejecutarBloque(tema: string, empresa_id: string, mensaje: string): Promise<string | null> {
+  switch (tema) {
+    case "ventas": return await consultarVentas(empresa_id, mensaje);
+    case "finanzas": return await consultarFinanzas(empresa_id, mensaje); // futuro
+    case "rrhh": return await consultarRRHH(empresa_id, mensaje); // futuro
+    case "maquinaria": return await consultarMaquinaria(empresa_id, mensaje); // futuro
+    case "campo": return await consultarCampo(empresa_id, mensaje); // futuro
+    case "cheques": return await consultarCheques(empresa_id, mensaje); // futuro
+    default: return null;
+  }
+}
 
 
-// ✅ POST Handler: Procesamiento completo del mensaje del usuario
+
+// ✅ POST modular – ejecuta solo los bloques necesarios
 export async function POST(req: NextRequest) {
-const { message, empresa_id, userId = 'default', temperature: ovTemp, top_p: ovTopP } = await req.json();
-if (!message) return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 });
-if (!empresa_id) return NextResponse.json({ error: 'Empresa requerida' }, { status: 400 });
+  const { message, empresa_id } = await req.json();
 
-const periodo = interpretarTiempoExtendido(message);
-if (!periodo) {
-return NextResponse.json({ error: 'No se pudo interpretar el periodo solicitado' }, { status: 400 });
-}
+  if (!message || !empresa_id) {
+    return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+  }
 
-const mes = periodo.inicio.getMonth() + 1;
-const anio = periodo.inicio.getFullYear();
-const resumen = await consultarResumenMensual(empresa_id, mes, anio);
+  const temas = detectarTemas(message); // ej: ["ventas", "rrhh"]
 
-try {
-const { nombre, sector } = await obtenerContextoEmpresa(empresa_id);
-const categoria = ConversationMemoryManager.detectContext(message, userId);
+  const resultados = await Promise.all(
+    temas.map((tema) => ejecutarBloque(tema, empresa_id, message))
+  );
 
-const fewShotMessages = examples.flatMap(ex => [
-{ role: 'user', content: ex.user },
-{ role: 'assistant', content: ex.assistant }
-]);
+  const respuesta = resultados.filter(Boolean).join("\n");
 
-const promptIA = `
-Datos de la empresa ${nombre} (${sector}):
-- Total transacciones: ${resumen.total_transacciones}
-- Importe transacciones: ${resumen.total_importe_transacciones}
-- Total ventas: ${resumen.total_ventas}
-- Total ingresos: ${resumen.total_ingresos}
-- Total egresos: ${resumen.total_egresos}
-
-Pregunta: ${message}
-
-Responde SOLO en JSON:
-{ "recomendaciones": ["rec1", "rec2"] }
-`.trim();
-
-const completion = await openai.chat.completions.create({
-model: 'gpt-4o-mini',
-messages: [
-{ role: 'system', content: systemPrompt },
-...fewShotMessages,
-{ role: 'user', content: promptIA }
-],
-max_tokens: 200,
-temperature: ovTemp != null ? Number(ovTemp) : Number(TEMPERATURE),
-top_p: ovTopP != null ? Number(ovTopP) : Number(TOP_P)
-});
-
-const usage = completion.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-let recomendaciones: string[] = [];
-try {
-const content = completion.choices[0].message?.content;
-const parsed = JSON.parse(content || '{}');
-recomendaciones = Array.isArray(parsed.recomendaciones) ? parsed.recomendaciones : [];
-} catch (e) {
-console.error('❌ Error al parsear JSON de OpenAI:', e);
-}
-
-ConversationMemoryManager.saveInteraction(
-userId,
-message,
-JSON.stringify({ empresa: nombre, resumen: resumen.resumen, recomendaciones }),
-categoria
-);
-
-return NextResponse.json({
-empresa: nombre,
-sector,
-resumen: resumen.resumen,
-recomendaciones,
-telemetry: usage,
-respuesta: resumen.resumen
-});
-} catch (err: any) {
-console.error('💥 Error en POST:', err);
-return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-}
+  return NextResponse.json({ respuesta });
 }
 
