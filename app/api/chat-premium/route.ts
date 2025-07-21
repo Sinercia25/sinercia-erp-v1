@@ -3,9 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Pool as PgPool } from 'pg'
 import parseDbUrl from 'parse-database-url'
 import { OpenAI } from 'openai'
-import { systemPrompt as ventasPrompt } from '@/lib/prompts/ventas';
+import { ventasPrompt } from '@/lib/prompts/ventas';
 import { ConversationMemoryManager } from '@/lib/conversation-memory'
 import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodo-memory';
+import { interpretarTiempoExtendido } from '@/lib/interpretarTiempoExtendido'
+import { formatearMonto } from '@/lib/utils/formato'
+import { detectContext } from '@/lib/detectContext';
+import { UNSTABLE_REVALIDATE_RENAME_ERROR } from 'next/dist/lib/constants';
 
 
 const {
@@ -32,10 +36,14 @@ max: 10,
 idleTimeoutMillis: 30000
 })
 const memoriaTemasPorUsuario = new Map<string, string[]>();
+
+
+
 // 🤖 INSTANCIA DE OPENAI
 const openai = new OpenAI({
 apiKey: OPENAI_API_KEY
 })
+
 
 // 🔍 Función auxiliar: obtener nombre e industria desde tabla companies del DWH
 async function obtenerContextoEmpresa(empresa_id: string) {
@@ -60,146 +68,6 @@ sector: rows[0].industria
 }
 
 
-// 🧠 INTERPRETACIÓN TEMPORAL EXTENDIDA v1.3 - incluye "desde...hasta" y mejora detección de nombres de meses como "julio"
-export type PeriodoDetectado = {
-tipo: 'dia' | 'semana' | 'mes' | 'trimestre' | 'año' | 'decada' | 'rango',
-inicio: Date,
-fin: Date,
-descripcion: string
-}
-
-export function interpretarTiempoExtendido(texto: string): PeriodoDetectado | null {
-texto = texto.toLowerCase()
-const ahora = new Date()
-const añoActual = ahora.getFullYear()
-const mesActual = ahora.getMonth()
-const diaActual = ahora.getDate()
-
-const meses = [
-'enero','febrero','marzo','abril','mayo','junio',
-'julio','agosto','septiembre','octubre','noviembre','diciembre'
-]
-
-// 🗓️ NOMBRE DEL MES (ej: "julio")
-for (let i = 0; i < meses.length; i++) {
-if (texto.includes(meses[i])) {
-const inicio = new Date(añoActual, i, 1)
-const fin = new Date(añoActual, i + 1, 1)
-return {
-tipo: 'mes',
-inicio,
-fin,
-descripcion: `el mes de ${meses[i].toUpperCase()} ${añoActual}`
-}
-}
-}
-
-// ✳️ DETECCIÓN DE RANGO: "desde X hasta Y"
-const matchDesdeHasta = texto.match(/desde\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(hasta|a)\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/)
-if (matchDesdeHasta) {
-const [d1, d2] = [matchDesdeHasta[1], matchDesdeHasta[3]]
-const inicio = new Date(d1.replace(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/, '$3-$2-$1'))
-const fin = new Date(d2.replace(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/, '$3-$2-$1'))
-fin.setDate(fin.getDate() + 1)
-return { tipo: 'rango', inicio, fin, descripcion: `desde el ${d1} hasta el ${d2}` }
-}
-
-// 🟢 AYER, HOY, MAÑANA
-if (texto.includes('ayer')) {
-const inicio = new Date(añoActual, mesActual, diaActual - 1)
-const fin = new Date(añoActual, mesActual, diaActual)
-return { tipo: 'dia', inicio, fin, descripcion: 'ayer' }
-}
-if (texto.includes('hoy')) {
-const inicio = new Date(añoActual, mesActual, diaActual)
-const fin = new Date(inicio)
-fin.setDate(fin.getDate() + 1)
-return { tipo: 'dia', inicio, fin, descripcion: 'hoy' }
-}
-if (texto.includes('mañana')) {
-const inicio = new Date(añoActual, mesActual, diaActual + 1)
-const fin = new Date(inicio)
-fin.setDate(fin.getDate() + 1)
-return { tipo: 'dia', inicio, fin, descripcion: 'mañana' }
-}
-
-// 📅 MES ACTUAL y MES PASADO
-if (/este mes|actual|ahora/i.test(texto)) {
-const inicio = new Date(añoActual, mesActual, 1)
-const fin = new Date(añoActual, mesActual + 1, 1)
-return { tipo: 'mes', inicio, fin, descripcion: `este mes (${inicio.toLocaleString('es-AR', { month: 'long' })} ${añoActual})` }
-}
-if (/mes pasado|mes anterior/.test(texto)) {
-  console.log("📅 Detectado MES PASADO");
-const m = mesActual === 0 ? 11 : mesActual - 1
-const y = mesActual === 0 ? añoActual - 1 : añoActual
-const inicio = new Date(y, m, 1)
-const fin = new Date(y, m + 1, 1)
-return { tipo: 'mes', inicio, fin, descripcion: `el mes de ${meses[m].toUpperCase()} ${y}` }
-}
-
-// 🔁 Hace X años o meses
-const matchAnios = texto.match(/hace\s+(\d+)\s+a[nñ]os?/) 
-if (matchAnios) {
-const n = parseInt(matchAnios[1])
-const y = añoActual - n
-const inicio = new Date(y, 0, 1)
-const fin = new Date(y + 1, 0, 1)
-return { tipo: 'año', inicio, fin, descripcion: `el año ${y}` }
-}
-const matchMeses = texto.match(/hace\s+(\d+)\s+meses?/) 
-if (matchMeses) {
-const n = parseInt(matchMeses[1])
-const d = new Date(añoActual, mesActual, 1)
-d.setMonth(d.getMonth() - n)
-const inicio = new Date(d.getFullYear(), d.getMonth(), 1)
-const fin = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 1)
-return { tipo: 'mes', inicio, fin, descripcion: `hace ${n} meses (${meses[inicio.getMonth()].toUpperCase()} ${inicio.getFullYear()})` }
-}
-
-// 📆 Año exacto y frases tipo "el año pasado" — se ajusta al mes actual del año pasado si no se especifica mes"el año pasado", "y el año 2020"
-const matchAnioDirecto = texto.match(/(en|del|a[nñ]o|y el a[nñ]o|para el a[nñ]o)\s*(\d{4})/)
-if (matchAnioDirecto) {
-const y = parseInt(matchAnioDirecto[2])
-return { tipo: 'año', inicio: new Date(y, 0, 1), fin: new Date(y + 1, 0, 1), descripcion: `el año ${y}` }
-}
-if (texto.includes('el año pasado') || texto.includes('año anterior') || texto.includes('y el año pasado')) {
-const y = añoActual - 1
-const inicio = new Date(y, mesActual, 1)
-const fin = new Date(y, mesActual + 1, 1)
-return { tipo: 'mes', inicio, fin, descripcion: `el mes de ${meses[mesActual].toUpperCase()} ${y}` }
-}
-
-// 🗓️ Década
-const matchDecada = texto.match(/d[ée]cada\s+(del\s+)?(\d{2})/)
-if (matchDecada) {
-const dec = parseInt(matchDecada[2])
-const base = dec < 30 ? 2000 : 1900
-const y = base + dec
-return {
-tipo: 'decada',
-inicio: new Date(y, 0, 1),
-fin: new Date(y + 10, 0, 1),
-descripcion: `la década del ${dec}0`
-}
-}
-
-// 📉 Últimos N años
-const matchUltimos = texto.match(/últimos?\s+(\d+)\s+a[nñ]os?/) 
-if (matchUltimos) {
-const n = parseInt(matchUltimos[1])
-const inicio = new Date(añoActual - n, 0, 1)
-const fin = new Date(añoActual + 1, 0, 1)
-return {
-tipo: 'rango',
-inicio,
-fin,
-descripcion: `los últimos ${n} años`
-}
-}
-
-return null
-}
 // 🧠 Detecta qué temas hay en el mensaje del usuario
 function detectarTemas(texto: string): string[] {
   texto = texto.toLowerCase();
@@ -214,18 +82,25 @@ function detectarTemas(texto: string): string[] {
 
   return temas;
 }
+// 🧩 Bloque de consulta de ventas usando rango extendido y memoria contextual
 
-// 🧩 Bloque de consulta de ventas usando rango extendido
-
-async function consultarVentas(empresa_id: string, mensaje: string): Promise<string> {
+async function consultarVentas(empresa_id: string, user_id: string, mensaje: string): Promise<string> {
   console.log("🔥 ENTRÓ A consultarVentas");
   console.log("📨 Texto recibido:", mensaje);
 
-  const periodo = interpretarTiempoExtendido(mensaje);
-  console.log("🧠 Periodo detectado:", periodo);
-  if (!periodo) return '❌ No se pudo detectar el periodo temporal';
+  let periodo = interpretarTiempoExtendido(mensaje, user_id);
 
-  // 1. Consultar total de ventas
+  if (periodo) {
+    console.log("🧠 Periodo detectado:", periodo.descripcion);
+    guardarPeriodo(user_id, periodo);
+  } else {
+    periodo = obtenerUltimoPeriodo(user_id);
+    if (!periodo) {
+      return `No se pudo detectar ningún período. Probá con algo como "¿Cuánto vendimos en julio?"`;
+    }
+    console.log("🔁 Usando período desde memoria:", periodo.descripcion);
+  }
+
   const sql = `
     SELECT SUM(total::numeric) AS total_ventas,
            COUNT(*) AS cantidad_transacciones
@@ -243,25 +118,28 @@ async function consultarVentas(empresa_id: string, mensaje: string): Promise<str
 
   const total = parseFloat(rows[0]?.total_ventas || '0');
   const transacciones = parseInt(rows[0]?.cantidad_transacciones || '0');
-  const ticketPromedio = transacciones > 0 ? total / transacciones : 0;
 
   if (total === 0 && transacciones === 0) {
-  return `⚠️ No se encontraron ventas registradas para ${periodo.descripcion.toUpperCase()}.`;
-}
+    return `No se encontraron ventas registradas para ${periodo.descripcion.toUpperCase()} ⚠️\n¿Querés consultar otro período o comparar con el año anterior?`;
+  }
 
-  // 2. Armar prompt con datos reales
+  if (total > 0 && transacciones > 0) {
+    const ticketPromedio = total / transacciones;
+    const linea1 = `Vendiste ${formatearMonto(total)} en ${periodo.descripcion.toUpperCase()} 💰`;
+    const linea2 = `El ticket promedio fue de ${formatearMonto(ticketPromedio)}. ¿Querés comparar con otro mes?`;
+    return `${linea1}\n${linea2}`;
+  }
+
+  // Si llegamos aquí, se usa GPT como fallback (raro, pero por si acaso)
   const promptIA = `
-Datos de ventas de la empresa:
-- Total ventas: $${total.toLocaleString("es-AR")}
-- Cantidad de transacciones: ${transacciones}
-- Ticket promedio: $${ticketPromedio.toFixed(2)}
+IMPORTANTE: Debés usar literalmente "${periodo.descripcion.toUpperCase()}" como período. No lo cambies ni inventes otro.
+
+Respondé SOLO en este formato exacto:
+Vendiste ${formatearMonto(total)} en ${periodo.descripcion.toUpperCase()} 💰\nEl ticket promedio fue de ${formatearMonto(total / transacciones)}. ¿Querés comparar con otro mes?
 
 Pregunta original del usuario: "${mensaje}"
-
-Respondé como un analista financiero. Primero contestá el dato solicitado (si aplica), y luego, solo si tiene sentido, ofrecé ampliar con otro indicador.
 `.trim();
 
-  // 3. Enviar al modelo con prompt específico de ventas
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
@@ -275,23 +153,25 @@ Respondé como un analista financiero. Primero contestá el dato solicitado (si 
   const content = completion.choices[0].message?.content || '{}';
 
   try {
-    const parsed = JSON.parse(content);
-const respuesta = parsed.respuesta;
-if (!Array.isArray(respuesta)) throw new Error("Respuesta inválida");
-
-const texto = respuesta.map((r: string) => `- ${r}`).join('\n');
-return texto;
+    const cleaned = content.replace(/```json|```/g, '').trim();
+    return cleaned;
   } catch (err) {
     console.error("❌ Error al interpretar respuesta del modelo:", err, content);
-    return '⚠️ No pude generar recomendaciones en este momento.';
+    return `⚠️ No pude generar la respuesta correctamente. ¿Querés intentarlo de nuevo o consultar otro período?`;
   }
 }
 
 
+
 // 🔀 Ejecuta solo el bloque necesario según el tema detectado
-async function ejecutarBloque(tema: string, empresa_id: string, mensaje: string): Promise<string | null> {
+async function ejecutarBloque(
+  tema: string,
+  empresa_id: string,
+  user_id: string,
+  mensaje: string
+): Promise<string | null> {
   switch (tema) {
-    case "ventas": return await consultarVentas(empresa_id, mensaje);
+    case "ventas": return await consultarVentas(empresa_id, user_id, mensaje);
     case "finanzas": return await consultarFinanzas(empresa_id, mensaje); // futuro
     case "rrhh": return await consultarRRHH(empresa_id, mensaje); // futuro
     case "maquinaria": return await consultarMaquinaria(empresa_id, mensaje); // futuro
@@ -300,7 +180,6 @@ async function ejecutarBloque(tema: string, empresa_id: string, mensaje: string)
     default: return null;
   }
 }
-
 
 
 // ✅ POST modular – ejecuta solo los bloques necesarios
@@ -313,17 +192,18 @@ export async function POST(req: NextRequest) {
 
   // 🧠 Identificación del usuario y contexto
   const userId = req.headers.get('x-user-id') || 'anonimo';
-  const contexto = ConversationMemoryManager.detectContext(message, userId);
-  const temas = [contexto];
+const lastTema = ConversationMemoryManager.getLastContext(userId);
+const contexto = detectContext(message, userId, lastTema);
+const temas = [contexto];
 
   console.log("🧠 Contexto detectado:", contexto);
-  console.log("🧠 Temas detectados:", temas);
+  console.log("🧠 Tema detectado:", contexto);
   console.log("🗂️ Último mensaje del usuario:", ConversationMemoryManager.getLastUserMessage(userId));
   console.log("🧾 Memoria actual:\n" + ConversationMemoryManager.getConversationContext(userId));
 
   // 🧠 Ejecutar solo los bloques necesarios
   const resultados = await Promise.all(
-    temas.map((tema) => ejecutarBloque(tema, empresa_id, message))
+    temas.map((tema) => ejecutarBloque(tema, empresa_id, userId, message)) // 👈 CORREGIDO
   );
 
   const respuesta = resultados.filter(Boolean).join("\n");
@@ -333,5 +213,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ respuesta });
 }
-
 

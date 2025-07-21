@@ -97,6 +97,13 @@ export class ConversationMemoryManager {
     return 'general'
   }
 
+  static getLastContext(userId: string): string {
+  const session = conversationMemory.get(userId)
+  if (!session || session.conversation.length === 0) return 'general'
+  return session.conversation[session.conversation.length - 1].context
+}
+
+  
   // Función para modo aprendizaje: guardar nuevas palabras aprendidas (opcional)
   static async learnNewTerm(palabra: string, definicion: string) {
     console.log(`🧠 Aprendido: ${palabra} = ${definicion}`)

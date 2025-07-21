@@ -1,6 +1,4 @@
-// lib/periodo-memory.ts
-
-import type { PeriodoDetectado } from './ruta-de-tu-archivo-interpretarTiempo';
+import type { PeriodoDetectado } from './interpretarTiempoExtendido';
 
 const periodosPorUsuario = new Map<string, PeriodoDetectado>();
 
