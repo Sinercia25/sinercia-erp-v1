@@ -64,32 +64,38 @@ export default function ChatTestPage() {
   }, [messages]);
 
   const sendMessage = async (customInput?: string) => {
-    const userMsg = customInput ?? input;
-    if (!userMsg.trim()) return;
-    setInput('');
-    setMessages(prev => [...prev, { user: userMsg, bot: '...' }]);
-    setIsTyping(true);
-    try {
-      const res = await fetch('/api/chat-premium', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, userId: 'demo_user' })
-      });
-      const data = await res.json();
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1].bot = data.message;
-        return updated;
-      });
-    } catch {
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1].bot = 'Error al enviar el mensaje.';
-        return updated;
-      });
-    }
-    setIsTyping(false);
-  };
+  const userMsg = customInput ?? input;
+  if (!userMsg.trim()) return;
+  setInput('');
+  setMessages(prev => [...prev, { user: userMsg, bot: '...' }]);
+  setIsTyping(true);
+  try {
+    const res = await fetch('/api/chat-premium', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMsg, empresa_id: 'emp_002', userId: 'demo_user' })
+    });
+    const data = await res.json();
+    console.log("🧪 Respuesta del backend:", data); // 👈 IMPORTANTE
+
+    setMessages(prev => {
+      const updated = [...prev];
+      // Se adapta a distintos formatos posibles de respuesta
+      updated[updated.length - 1].bot =
+        data.resumen || data.respuesta || data.message || data.resultado || '❌ Sin respuesta del bot.';
+      return updated;
+    });
+  } catch (error) {
+    console.error("❌ Error en la llamada al backend:", error);
+    setMessages(prev => {
+      const updated = [...prev];
+      updated[updated.length - 1].bot = '❌ Error al enviar el mensaje.';
+      return updated;
+    });
+  }
+  setIsTyping(false);
+};
+
 
   const MetricCard = ({ title, value }: { title: string; value: string }) => (
     <div className="bg-white p-2 rounded-xl shadow-sm text-xs text-[#222B3A] min-w-[120px] mr-3 snap-start">

@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Pool as PgPool } from 'pg'
 import parseDbUrl from 'parse-database-url'
 import { OpenAI } from 'openai'
-import { systemPrompt, examples } from '@/lib/prompt'
+import { systemPrompt as ventasPrompt } from '@/lib/prompts/ventas';
 import { ConversationMemoryManager } from '@/lib/conversation-memory'
+import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodo-memory';
+
 
 const {
 DWH_URL,
@@ -29,6 +31,7 @@ ssl: { rejectUnauthorized: false },
 max: 10,
 idleTimeoutMillis: 30000
 })
+const memoriaTemasPorUsuario = new Map<string, string[]>();
 // 🤖 INSTANCIA DE OPENAI
 const openai = new OpenAI({
 apiKey: OPENAI_API_KEY
@@ -121,12 +124,13 @@ return { tipo: 'dia', inicio, fin, descripcion: 'mañana' }
 }
 
 // 📅 MES ACTUAL y MES PASADO
-if (texto.includes('este mes')) {
+if (/este mes|actual|ahora/i.test(texto)) {
 const inicio = new Date(añoActual, mesActual, 1)
 const fin = new Date(añoActual, mesActual + 1, 1)
 return { tipo: 'mes', inicio, fin, descripcion: `este mes (${inicio.toLocaleString('es-AR', { month: 'long' })} ${añoActual})` }
 }
-if (texto.includes('mes pasado') || texto.includes('mes anterior')) {
+if (/mes pasado|mes anterior/.test(texto)) {
+  console.log("📅 Detectado MES PASADO");
 const m = mesActual === 0 ? 11 : mesActual - 1
 const y = mesActual === 0 ? añoActual - 1 : añoActual
 const inicio = new Date(y, m, 1)
@@ -201,7 +205,7 @@ function detectarTemas(texto: string): string[] {
   texto = texto.toLowerCase();
   const temas: string[] = [];
 
-  if (/venta|factura/.test(texto)) temas.push("ventas");
+  if (/venta|ventas|factura|vendimos|vender|facturación/.test(texto)) temas.push("ventas");
   if (/ingreso|egreso|caja|flujo/.test(texto)) temas.push("finanzas");
   if (/personal|empleado|rrhh|sueldo/.test(texto)) temas.push("rrhh");
   if (/maquina|mantenimiento|tractor/.test(texto)) temas.push("maquinaria");
@@ -212,12 +216,19 @@ function detectarTemas(texto: string): string[] {
 }
 
 // 🧩 Bloque de consulta de ventas usando rango extendido
+
 async function consultarVentas(empresa_id: string, mensaje: string): Promise<string> {
+  console.log("🔥 ENTRÓ A consultarVentas");
+  console.log("📨 Texto recibido:", mensaje);
+
   const periodo = interpretarTiempoExtendido(mensaje);
+  console.log("🧠 Periodo detectado:", periodo);
   if (!periodo) return '❌ No se pudo detectar el periodo temporal';
 
+  // 1. Consultar total de ventas
   const sql = `
-    SELECT SUM(total::numeric) AS total_ventas
+    SELECT SUM(total::numeric) AS total_ventas,
+           COUNT(*) AS cantidad_transacciones
     FROM facturas
     WHERE empresa_id = $1
       AND fecha_emision >= $2
@@ -231,8 +242,51 @@ async function consultarVentas(empresa_id: string, mensaje: string): Promise<str
   ]);
 
   const total = parseFloat(rows[0]?.total_ventas || '0');
-  return `💰 **Ventas en ${periodo.descripcion.toUpperCase()}:** $${(total / 1e6).toFixed(2)}M`;
+  const transacciones = parseInt(rows[0]?.cantidad_transacciones || '0');
+  const ticketPromedio = transacciones > 0 ? total / transacciones : 0;
+
+  if (total === 0 && transacciones === 0) {
+  return `⚠️ No se encontraron ventas registradas para ${periodo.descripcion.toUpperCase()}.`;
 }
+
+  // 2. Armar prompt con datos reales
+  const promptIA = `
+Datos de ventas de la empresa:
+- Total ventas: $${total.toLocaleString("es-AR")}
+- Cantidad de transacciones: ${transacciones}
+- Ticket promedio: $${ticketPromedio.toFixed(2)}
+
+Pregunta original del usuario: "${mensaje}"
+
+Respondé como un analista financiero. Primero contestá el dato solicitado (si aplica), y luego, solo si tiene sentido, ofrecé ampliar con otro indicador.
+`.trim();
+
+  // 3. Enviar al modelo con prompt específico de ventas
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: ventasPrompt },
+      { role: 'user', content: promptIA }
+    ],
+    max_tokens: 300,
+    temperature: 0.7
+  });
+
+  const content = completion.choices[0].message?.content || '{}';
+
+  try {
+    const parsed = JSON.parse(content);
+const respuesta = parsed.respuesta;
+if (!Array.isArray(respuesta)) throw new Error("Respuesta inválida");
+
+const texto = respuesta.map((r: string) => `- ${r}`).join('\n');
+return texto;
+  } catch (err) {
+    console.error("❌ Error al interpretar respuesta del modelo:", err, content);
+    return '⚠️ No pude generar recomendaciones en este momento.';
+  }
+}
+
 
 // 🔀 Ejecuta solo el bloque necesario según el tema detectado
 async function ejecutarBloque(tema: string, empresa_id: string, mensaje: string): Promise<string | null> {
@@ -257,14 +311,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
   }
 
-  const temas = detectarTemas(message); // ej: ["ventas", "rrhh"]
+  // 🧠 Identificación del usuario y contexto
+  const userId = req.headers.get('x-user-id') || 'anonimo';
+  const contexto = ConversationMemoryManager.detectContext(message, userId);
+  const temas = [contexto];
 
+  console.log("🧠 Contexto detectado:", contexto);
+  console.log("🧠 Temas detectados:", temas);
+  console.log("🗂️ Último mensaje del usuario:", ConversationMemoryManager.getLastUserMessage(userId));
+  console.log("🧾 Memoria actual:\n" + ConversationMemoryManager.getConversationContext(userId));
+
+  // 🧠 Ejecutar solo los bloques necesarios
   const resultados = await Promise.all(
     temas.map((tema) => ejecutarBloque(tema, empresa_id, message))
   );
 
   const respuesta = resultados.filter(Boolean).join("\n");
 
+  // 💾 Guardar esta interacción en memoria
+  ConversationMemoryManager.saveInteraction(userId, message, respuesta, contexto);
+
   return NextResponse.json({ respuesta });
 }
+
 
