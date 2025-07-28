@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 
 // 🧠 MEMORIA Y CONTEXTO DEL USUARIO
 import {guardarInteraccion, obtenerUltimoMensaje, obtenerUltimoTema} from '@/lib/memoriaConversacional/guardarContexto'
-import { PeriodoDetectado } from '@/lib/memory/periodo-memory'
+import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido'
 import { generarSugerenciaContextual } from '@/lib/memoriaConversacional/sugerenciasContextuales'
 import { generarOpcionesPorContexto } from '@/lib/memoriaConversacional/sugerenciasOpcionales'
 
