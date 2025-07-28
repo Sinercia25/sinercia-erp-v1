@@ -34,6 +34,13 @@ Respondé exclusivamente en texto plano (sin estructura JSON) usando el formato:
 Vendiste $XXX.XM en MES AÑO 💰
 El ticket promedio fue de $XXX.XM
 
+Si se incluye el campo variacion_mensual, indicá el cambio porcentual respecto al mes anterior con frases como:
+- “Eso representa un 12% más que junio 📈”
+- “Eso representa un 8% menos que el mes anterior 📉”
+Si el usuario hace referencia al mes anterior o al actual ("comparado con este mes", "julio", "el mes pasado"), usá la descripción del período actual para ubicar el contexto.
+Si no se entiende, pedile aclaración y ofrecé un ejemplo de cómo preguntar.
+
+
 🚫 Bajo ningún concepto uses formato JSON ni devuelvas la respuesta encerrada entre comillas, ni uses \`\`\`json. Respondé solo como si escribieras texto a un humano profesional.
 `.trim();
 

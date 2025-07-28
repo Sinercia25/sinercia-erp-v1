@@ -5,10 +5,10 @@ import parseDbUrl from 'parse-database-url'
 import { OpenAI } from 'openai'
 import { ventasPrompt } from '@/lib/prompts/ventas';
 import { ConversationMemoryManager } from '@/lib/conversation-memory'
-import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodo-memory';
-import { interpretarTiempoExtendido } from '@/lib/interpretarTiempoExtendido'
+import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodos/periodo-memory';
+import { interpretarTiempoExtendido } from '@/lib/periodos/interpretarTiempoExtendido'
 import { formatearMonto } from '@/lib/utils/formato'
-import { detectContext } from '@/lib/detectContext';
+import { detectContext } from '@/lib/detectores/detectContext';
 import { UNSTABLE_REVALIDATE_RENAME_ERROR } from 'next/dist/lib/constants';
 
 
