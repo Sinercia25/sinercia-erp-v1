@@ -1,169 +1,54 @@
-// 📦 CONFIGURACIÓN GENERAL Y CONEXIONES
+// @ts-check
+
+// 📦 CONFIGURACIÓN GENERAL DEL SISTEMA
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool as PgPool } from 'pg'
-import parseDbUrl from 'parse-database-url'
 import { OpenAI } from 'openai'
-import { ventasPrompt } from '@/lib/prompts/ventas';
-import { ConversationMemoryManager } from '@/lib/conversation-memory'
-import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodos/periodo-memory';
+import { db } from '@/lib/db'
+
+// 🧠 MEMORIA Y CONTEXTO DEL USUARIO
+import {guardarInteraccion, obtenerUltimoMensaje, obtenerUltimoTema} from '@/lib/memoriaConversacional/guardarContexto'
+import { PeriodoDetectado } from '@/lib/memory/periodo-memory'
+import { generarSugerenciaContextual } from '@/lib/memoriaConversacional/sugerenciasContextuales'
+import { generarOpcionesPorContexto } from '@/lib/memoriaConversacional/sugerenciasOpcionales'
+
+
+
+// 🧠 DETECTORES DE INTENCIÓN Y TIEMPO
+import { detectContext } from '@/lib/detectores/detectContext'
 import { interpretarTiempoExtendido } from '@/lib/periodos/interpretarTiempoExtendido'
+import { obtenerPeriodoValido } from '@/lib/periodos/obtenerPeriodoValido'
+import { guardarPeriodo } from '@/lib/periodos/periodo-memory'
+
+
+// 🛠️ UTILIDADES GENERALES
 import { formatearMonto } from '@/lib/utils/formato'
-import { detectContext } from '@/lib/detectores/detectContext';
-import { UNSTABLE_REVALIDATE_RENAME_ERROR } from 'next/dist/lib/constants';
+
+// 🧾 PROMPTS POR MÓDULO
+import { ventasPrompt } from '@/lib/prompts/ventasPrompt'
+import { finanzasPrompt } from '@/lib/prompts/finanzasPrompt'
+import { stockPrompt } from '@/lib/prompts/stockPrompt'
+
+// 📊 CONSULTAS AL DWH
+import { obtenerResumenVentas } from '@/lib/dwh/ventas/resumenVentas'
+import { consultarFinanzas, consultarFinanzasPorCategoria } from '@/lib/dwh/finanzas'
+import { obtenerResumenStock } from '@/lib/dwh/stock/resumenStock'
+
+// 💬 RESPUESTAS CONVERSACIONALES DIRECTAS
+import { generarRespuestaStock } from '@/lib/respuestas/stock/generarRespuestaStock'
+import { generarRespuestaSimpleVentas,generarResumenEjecutivoVentas} from '@/lib/respuestas/ventas/generarRespuestaVentas'
+import { esConsultaDirectaStock } from '@/lib/respuestas/stock/esConsultaDirecta'
+import { esConsultaDirectaVentas } from '@/lib/respuestas/ventas/esConsultaDirecta'
+import { esSolicitudDeResumen } from '@/lib/respuestas/ventas/esSolicitudDeResumen'
 
 
-const {
-DWH_URL,
-DATABASE_URL,
-OPENAI_API_KEY,
-TEMPERATURE = '0.8',
-TOP_P = '0.9'
-} = process.env
-
-if (!DWH_URL || !DATABASE_URL || !OPENAI_API_KEY) {
-throw new Error('🚨 Faltan variables de entorno: DWH_URL, DATABASE_URL o OPENAI_API_KEY')
-}
-
-const dwhConfig = parseDbUrl(DWH_URL)
-const dwhPool = new PgPool({
-host: dwhConfig.host,
-port: dwhConfig.port,
-user: dwhConfig.user,
-password: dwhConfig.password,
-database: dwhConfig.database,
-ssl: { rejectUnauthorized: false },
-max: 10,
-idleTimeoutMillis: 30000
-})
-const memoriaTemasPorUsuario = new Map<string, string[]>();
+// 💬 USUARIOS
+import { adaptarRespuestaPorPuesto } from '@/lib/memoriaConversacional/perfiladoRespuesta'
 
 
+// 🤖 OPENAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' })
 
-// 🤖 INSTANCIA DE OPENAI
-const openai = new OpenAI({
-apiKey: OPENAI_API_KEY
-})
-
-
-// 🔍 Función auxiliar: obtener nombre e industria desde tabla companies del DWH
-async function obtenerContextoEmpresa(empresa_id: string) {
-const { rows } = await dwhPool.query<{
-nombre: string;
-industria: string;
-}>(`
-SELECT nombre, industria
-FROM empresas
-WHERE id = $1
-LIMIT 1
-`, [empresa_id]);
-
-if (rows.length === 0) {
-throw new Error(`Empresa no encontrada: ${empresa_id}`);
-}
-
-return {
-nombre: rows[0].nombre,
-sector: rows[0].industria 
-};
-}
-
-
-// 🧠 Detecta qué temas hay en el mensaje del usuario
-function detectarTemas(texto: string): string[] {
-  texto = texto.toLowerCase();
-  const temas: string[] = [];
-
-  if (/venta|ventas|factura|vendimos|vender|facturación/.test(texto)) temas.push("ventas");
-  if (/ingreso|egreso|caja|flujo/.test(texto)) temas.push("finanzas");
-  if (/personal|empleado|rrhh|sueldo/.test(texto)) temas.push("rrhh");
-  if (/maquina|mantenimiento|tractor/.test(texto)) temas.push("maquinaria");
-  if (/campo|lote|siembra|cosecha/.test(texto)) temas.push("campo");
-  if (/cheque/.test(texto)) temas.push("cheques");
-
-  return temas;
-}
-// 🧩 Bloque de consulta de ventas usando rango extendido y memoria contextual
-
-async function consultarVentas(empresa_id: string, user_id: string, mensaje: string): Promise<string> {
-  console.log("🔥 ENTRÓ A consultarVentas");
-  console.log("📨 Texto recibido:", mensaje);
-
-  let periodo = interpretarTiempoExtendido(mensaje, user_id);
-
-  if (periodo) {
-    console.log("🧠 Periodo detectado:", periodo.descripcion);
-    guardarPeriodo(user_id, periodo);
-  } else {
-    periodo = obtenerUltimoPeriodo(user_id);
-    if (!periodo) {
-      return `No se pudo detectar ningún período. Probá con algo como "¿Cuánto vendimos en julio?"`;
-    }
-    console.log("🔁 Usando período desde memoria:", periodo.descripcion);
-  }
-
-  const sql = `
-    SELECT SUM(total::numeric) AS total_ventas,
-           COUNT(*) AS cantidad_transacciones
-    FROM facturas
-    WHERE empresa_id = $1
-      AND fecha_emision >= $2
-      AND fecha_emision < $3
-  `;
-
-  const { rows } = await dwhPool.query(sql, [
-    empresa_id,
-    periodo.inicio.toISOString(),
-    periodo.fin.toISOString()
-  ]);
-
-  const total = parseFloat(rows[0]?.total_ventas || '0');
-  const transacciones = parseInt(rows[0]?.cantidad_transacciones || '0');
-
-  if (total === 0 && transacciones === 0) {
-    return `No se encontraron ventas registradas para ${periodo.descripcion.toUpperCase()} ⚠️\n¿Querés consultar otro período o comparar con el año anterior?`;
-  }
-
-  if (total > 0 && transacciones > 0) {
-    const ticketPromedio = total / transacciones;
-    const linea1 = `Vendiste ${formatearMonto(total)} en ${periodo.descripcion.toUpperCase()} 💰`;
-    const linea2 = `El ticket promedio fue de ${formatearMonto(ticketPromedio)}. ¿Querés comparar con otro mes?`;
-    return `${linea1}\n${linea2}`;
-  }
-
-  // Si llegamos aquí, se usa GPT como fallback (raro, pero por si acaso)
-  const promptIA = `
-IMPORTANTE: Debés usar literalmente "${periodo.descripcion.toUpperCase()}" como período. No lo cambies ni inventes otro.
-
-Respondé SOLO en este formato exacto:
-Vendiste ${formatearMonto(total)} en ${periodo.descripcion.toUpperCase()} 💰\nEl ticket promedio fue de ${formatearMonto(total / transacciones)}. ¿Querés comparar con otro mes?
-
-Pregunta original del usuario: "${mensaje}"
-`.trim();
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      { role: 'system', content: ventasPrompt },
-      { role: 'user', content: promptIA }
-    ],
-    max_tokens: 300,
-    temperature: 0.7
-  });
-
-  const content = completion.choices[0].message?.content || '{}';
-
-  try {
-    const cleaned = content.replace(/```json|```/g, '').trim();
-    return cleaned;
-  } catch (err) {
-    console.error("❌ Error al interpretar respuesta del modelo:", err, content);
-    return `⚠️ No pude generar la respuesta correctamente. ¿Querés intentarlo de nuevo o consultar otro período?`;
-  }
-}
-
-
-
-// 🔀 Ejecuta solo el bloque necesario según el tema detectado
+// 🔀 EJECUTA EL BLOQUE NECESARIO SEGÚN EL CONTEXTO
 async function ejecutarBloque(
   tema: string,
   empresa_id: string,
@@ -171,46 +56,165 @@ async function ejecutarBloque(
   mensaje: string
 ): Promise<string | null> {
   switch (tema) {
-    case "ventas": return await consultarVentas(empresa_id, user_id, mensaje);
-    case "finanzas": return await consultarFinanzas(empresa_id, mensaje); // futuro
-    case "rrhh": return await consultarRRHH(empresa_id, mensaje); // futuro
-    case "maquinaria": return await consultarMaquinaria(empresa_id, mensaje); // futuro
-    case "campo": return await consultarCampo(empresa_id, mensaje); // futuro
-    case "cheques": return await consultarCheques(empresa_id, mensaje); // futuro
-    default: return null;
+        
+
+  case "ventas": {
+  const periodo = await obtenerPeriodoValido(mensaje, user_id)
+  guardarPeriodo(user_id, periodo)
+
+  const resumen = await obtenerResumenVentas(empresa_id, periodo)
+
+ if (esConsultaDirectaVentas(mensaje)) {
+  if (esSolicitudDeResumen(mensaje)) {
+    const resumenTexto = generarResumenEjecutivoVentas(resumen)
+    const sugerenciaGPT = await generarSugerenciaConGPT('ventas', resumen, mensaje)
+    return `${resumenTexto}\n\n${sugerenciaGPT}`
   }
+
+  const respuesta = generarRespuestaSimpleVentas(resumen)
+  const opciones = generarOpcionesPorContexto('ventas') // rápido y natural
+  return `${respuesta}\n\n${opciones}`
 }
 
 
-// ✅ POST modular – ejecuta solo los bloques necesarios
-export async function POST(req: NextRequest) {
-  const { message, empresa_id } = await req.json();
+  // Fallback: si no es una pregunta directa, usamos GPT con datos reales
+  const prompt = `
+Estos son los datos reales de ventas durante ${resumen.periodo}:
 
+${JSON.stringify(resumen, null, 2)}
+
+Respondé al usuario con un análisis claro, profesional y humano. Sé breve y concreto. Si podés, sugerí un paso siguiente.
+`.trim()
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    temperature: 0.5,
+    messages: [
+      { role: 'system', content: ventasPrompt },
+      { role: 'user', content: mensaje },
+      { role: 'assistant', content: prompt }
+    ]
+  })
+
+  const respuestaGPT = completion.choices[0].message?.content?.trim()
+  return respuestaGPT || 'No se pudo generar respuesta para esa consulta.'
+}
+
+
+     case "stock": {
+  const resumen = await obtenerResumenStock(empresa_id)
+
+  // 🧠 Detectamos si la pregunta es directa y estructurada
+  if (esConsultaDirectaStock(mensaje)) {
+    const respuesta = generarRespuestaStock(resumen)
+    return respuesta
+  }
+
+  // 🤖 Si no, usamos GPT como asistente inteligente
+  const prompt = `
+Estos son los datos del stock actual:
+
+${JSON.stringify(resumen, null, 2)}
+
+Redactá una respuesta profesional y clara para el usuario.
+Respondé solo con texto plano. Si hay faltantes o productos críticos, mostralos.
+Terminá con una sugerencia útil.
+`.trim()
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    temperature: 0.4,
+    messages: [
+      { role: "system", content: stockPrompt },
+      { role: "user", content: mensaje },
+      { role: "assistant", content: prompt }
+    ]
+  })
+
+  return completion.choices[0].message?.content || "No se pudo generar respuesta."
+}
+
+console.log("🧠 Detected consulta directa:", esConsultaDirectaStock(mensaje))
+
+    case "finanzas": {
+      const periodo = interpretarTiempoExtendido(mensaje, user_id) ?? await obtenerUltimoPeriodo(user_id);
+      if (!periodo) return `No se detectó ningún período. Probá con "¿Cuánto gastamos en julio?"`;
+
+      if (/categoría|categorias|sueldos|alquiler|combustible|en qué gastamos|gastos por/i.test(mensaje)) {
+        const detalle = await consultarFinanzasPorCategoria(empresa_id, 'egreso', periodo);
+        if (detalle.length === 0) {
+          return `No se encontraron egresos por categoría para ${periodo.descripcion.toUpperCase()}.`;
+        }
+
+        const top = detalle.slice(0, 3).map(d =>
+          `• ${d.categoria}: $${d.total.toLocaleString()}`
+        ).join('\n');
+
+        return `📊 Principales egresos por categoría en ${periodo.descripcion}:\n\n${top}`;
+      }
+
+      const dato = await consultarFinanzas(empresa_id, periodo);
+      if (!dato || dato.includes("$0")) {
+        return `No se encontraron datos financieros para ${periodo.descripcion.toUpperCase()} ⚠️`;
+      }
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        temperature: 0.4,
+        messages: [
+          { role: 'system', content: finanzasPrompt },
+          { role: 'user', content: mensaje },
+          { role: 'assistant', content: dato }
+        ]
+      });
+
+      return completion.choices[0].message?.content || dato;
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ✅ ENDPOINT PRINCIPAL
+const handler = async (req: NextRequest) => {
+  const { message, empresa_id } = await req.json();
   if (!message || !empresa_id) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
   }
 
-  // 🧠 Identificación del usuario y contexto
   const userId = req.headers.get('x-user-id') || 'anonimo';
-const lastTema = ConversationMemoryManager.getLastContext(userId);
-const contexto = detectContext(message, userId, lastTema);
-const temas = [contexto];
+  const lastTema = obtenerUltimoTema(userId);
+  let contexto = await detectContext(message, userId, lastTema);
+  
+  // 🧠 Si no se pudo detectar el tema (GPT dijo "general"), usamos el último
+if (contexto === 'general' && lastTema) {
+  console.log("⚠️ Tema no reconocido, usando último contexto:", lastTema);
+  contexto = lastTema;
+}
+  
+  const temas = [contexto];
 
   console.log("🧠 Contexto detectado:", contexto);
-  console.log("🧠 Tema detectado:", contexto);
-  console.log("🗂️ Último mensaje del usuario:", ConversationMemoryManager.getLastUserMessage(userId));
-  console.log("🧾 Memoria actual:\n" + ConversationMemoryManager.getConversationContext(userId));
+  console.log("🗂️ Último mensaje del usuario:", obtenerUltimoMensaje(userId));
 
-  // 🧠 Ejecutar solo los bloques necesarios
+
   const resultados = await Promise.all(
-    temas.map((tema) => ejecutarBloque(tema, empresa_id, userId, message)) // 👈 CORREGIDO
+    temas.map((tema) => ejecutarBloque(tema, empresa_id, userId, message))
   );
 
   const respuesta = resultados.filter(Boolean).join("\n");
 
-  // 💾 Guardar esta interacción en memoria
-  ConversationMemoryManager.saveInteraction(userId, message, respuesta, contexto);
+// 🧠 Guardamos el mensaje en la memoria conversacional
+guardarInteraccion(userId, message, respuesta, contexto);
 
-  return NextResponse.json({ respuesta });
+// 🔐 Simulación: puesto del usuario (en futuro, viene desde BD o token)
+const puestoId = 'gerencia' // Cambialo por 'gerencia', 'admin', etc. para testear
+
+// 🎨 Adaptamos el estilo de la respuesta al puesto del usuario
+const respuestaFinal = adaptarRespuestaPorPuesto(respuesta, puestoId);
+
+// ✅ Devolvemos la respuesta final personalizada
+return NextResponse.json({ respuesta: respuestaFinal });
 }
-
+export { handler as POST };
