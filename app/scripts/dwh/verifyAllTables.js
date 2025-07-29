@@ -1,3 +1,12 @@
+/**
+ * 🧪 Script de diagnóstico técnico.
+ * Verifica que las tablas clave del DWH existan, tengan datos y devuelve métricas relevantes.
+ * No debe usarse en producción. Solo para testing local o auditoría manual.
+ *
+ * Ejecutar con: node scripts/diagnostico/verifyAllTables.js
+ */
+
+
 const { Client } = require('pg');
 
 const warehouseConfig = {

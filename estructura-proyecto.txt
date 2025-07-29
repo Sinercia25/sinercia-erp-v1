@@ -1,0 +1,162 @@
+.
+├── README.md
+├── add-empresa-cols.js
+├── app
+│   ├── api
+│   │   ├── chat
+│   │   │   └── route.ts
+│   │   ├── chat-predictivo
+│   │   │   └── route.ts
+│   │   ├── chat-premium
+│   │   │   └── route.ts
+│   │   └── health
+│   │       └── route.ts
+│   ├── app-page.tsx
+│   ├── ceobot
+│   │   ├── chat-panel
+│   │   │   └── page.tsx
+│   │   ├── chat-prod
+│   │   │   └── page.tsx
+│   │   └── chat-test
+│   │       └── page.tsx
+│   ├── erp
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── landing
+│   │   ├── components
+│   │   │   └── HowItWorks.tsx
+│   │   └── page.tsx
+│   └── layout.tsx
+├── check-supabase-tables.js
+├── check-usuarios.js
+├── create-document-content-simple.js
+├── create-logs-table.js
+├── create-missing-tables.js
+├── create-sync-meta.js
+├── create-warehouse-tables.js
+├── dwh-query.js
+├── eslint.config.mjs
+├── estructura-proyecto.txt
+├── expand-usuarios-120.js
+├── fix-vector-extension.js
+├── lib
+│   ├── cache
+│   │   ├── cache.ts
+│   │   ├── cheques
+│   │   ├── egresos
+│   │   ├── ingresos
+│   │   ├── rrhh
+│   │   ├── stock
+│   │   └── ventas
+│   │       └── consultarVentasCache.ts
+│   ├── conversation-memory.ts
+│   ├── db.ts
+│   ├── detectores
+│   │   ├── afip.ts
+│   │   ├── cheques.ts
+│   │   ├── clasificarModulo.ts
+│   │   ├── clientes.ts
+│   │   ├── compras.ts
+│   │   ├── detectContext.ts
+│   │   ├── detectarTemaGPT.ts
+│   │   ├── documentos.ts
+│   │   ├── finanzas.ts
+│   │   ├── predicciones.ts
+│   │   ├── reportes.ts
+│   │   ├── rrhh.ts
+│   │   ├── soporte.ts
+│   │   ├── stock.ts
+│   │   └── ventas.ts
+│   ├── dwh
+│   │   ├── egresos
+│   │   ├── finanzas
+│   │   │   ├── consultarFinanzas.ts
+│   │   │   ├── consultarFinanzasPorCategoria.ts
+│   │   │   └── index.ts
+│   │   ├── ingresos
+│   │   ├── rrhh
+│   │   ├── stock
+│   │   │   └── resumenStock.ts
+│   │   └── ventas
+│   │       ├── consultarVentasDesdeDWH.ts
+│   │       ├── index.ts
+│   │       └── resumenVentas.ts
+│   ├── memoriaConversacional
+│   │   ├── guardarContexto.ts
+│   │   ├── perfiladoRespuesta.ts
+│   │   ├── sugerenciasContextuales.ts
+│   │   └── sugerenciasOpcionales.ts
+│   ├── periodos
+│   │   ├── interpretarTiempoExtendido.ts
+│   │   ├── obtenerPeriodoValido.ts
+│   │   └── periodo-memory.ts
+│   ├── prisma.ts
+│   ├── prompts
+│   │   ├── finanzas.ts
+│   │   ├── finanzasPorCategoria.ts
+│   │   ├── finanzasPrompt.ts
+│   │   ├── prompt.ts
+│   │   ├── stockPrompt.ts
+│   │   └── ventasPrompt.ts
+│   ├── respuestas
+│   │   ├── stock
+│   │   │   ├── esConsultaDirecta.ts
+│   │   │   └── generarRespuestaStock.ts
+│   │   └── ventas
+│   │       ├── esConsultaDirecta.ts
+│   │       ├── esSolicitudDeResumen.ts
+│   │       └── generarRespuestaVentas.ts
+│   ├── server.ts
+│   ├── sugerencias
+│   │   └── generarSugerenciaConGPT.ts
+│   └── utils
+│       ├── dwh.ts
+│       └── formato.ts
+├── list-columns.js
+├── list-prisma-models.js
+├── next-env.d.ts
+├── next.config.cjs
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── pages
+│   └── api
+│       └── health
+│           └── route.ts
+├── plan-migracion.sh
+├── populate-empresa.js
+├── populate-new-tables.js
+├── postcss.config.mjs
+├── prisma
+│   └── schema.prisma
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── logo-sinercia.png
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── sync-completo.js
+├── sync-minutely.js
+├── sync-system
+│   ├── config
+│   │   └── sync-config.js
+│   ├── index.js
+│   ├── logs
+│   ├── managers
+│   │   ├── MultiScheduler.js
+│   │   └── SyncManager.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── scripts
+│   └── utils
+├── test-datawarehouse.js
+├── tsconfig.json
+├── update-all-tables.js
+├── verificar-simple.js
+├── verificar-sync-existentes.js
+├── verificar-todas-las-tablas.js
+├── verificar-todas-supabase.js
+└── verify-all-tables.js
+
+49 directories, 111 files

@@ -1,3 +1,9 @@
+/**
+ * 🧪 Script de diagnóstico para comparar Supabase vs DWH.
+ * Evalúa sincronización y presencia de tablas. Útil para auditar la integridad.
+ * Ejecutar con: node scripts/diagnostico/sync/verificarTablasSync.js
+ */
+
 const { Client } = require('pg');
 
 // CONFIGURACIÓN SUPABASE (SSL CORREGIDO)
