@@ -105,15 +105,19 @@ Respondé al usuario con un análisis claro, profesional y humano. Sé breve y c
 
 
      case "stock": {
+  console.log('📦 Procesando consulta de stock para empresa:', empresa_id)
   const resumen = await obtenerResumenStock(empresa_id)
+  console.log('📊 Resumen obtenido:', JSON.stringify(resumen, null, 2))
 
   // 🧠 Detectamos si la pregunta es directa y estructurada
   if (esConsultaDirectaStock(mensaje)) {
+    console.log('✅ Es consulta directa de stock')
     const respuesta = generarRespuestaStock(resumen)
     return respuesta
   }
 
   // 🤖 Si no, usamos GPT como asistente inteligente
+  console.log('🤖 Usando GPT para respuesta de stock')
   const prompt = `
 Estos son los datos del stock actual:
 
@@ -179,43 +183,50 @@ Terminá con una sugerencia útil.
 
 // ✅ ENDPOINT PRINCIPAL
 const handler = async (req: NextRequest) => {
-  const { message, empresa_id } = await req.json();
-  if (!message || !empresa_id) {
-    return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+  try {
+    const { message, empresa_id } = await req.json();
+    if (!message || !empresa_id) {
+      return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+    }
+
+    const userId = req.headers.get('x-user-id') || 'anonimo';
+    const lastTema = obtenerUltimoTema(userId);
+    let contexto = await detectContext(message, userId, lastTema);
+    
+    // 🧠 Si no se pudo detectar el tema (GPT dijo "general"), usamos el último
+    if (contexto === 'general' && lastTema) {
+      console.log("⚠️ Tema no reconocido, usando último contexto:", lastTema);
+      contexto = lastTema;
+    }
+    
+    const temas = [contexto];
+
+    console.log("🧠 Contexto detectado:", contexto);
+    console.log("🗂️ Último mensaje del usuario:", obtenerUltimoMensaje(userId));
+
+    const resultados = await Promise.all(
+      temas.map((tema) => ejecutarBloque(tema, empresa_id, userId, message))
+    );
+
+    const respuesta = resultados.filter(Boolean).join("\n");
+
+    // 🧠 Guardamos el mensaje en la memoria conversacional
+    guardarInteraccion(userId, message, respuesta, contexto);
+
+    // 🔐 Simulación: puesto del usuario (en futuro, viene desde BD o token)
+    const puestoId = 'gerencia' // Cambialo por 'gerencia', 'admin', etc. para testear
+
+    // 🎨 Adaptamos el estilo de la respuesta al puesto del usuario
+    const respuestaFinal = adaptarRespuestaPorPuesto(respuesta, puestoId);
+
+    // ✅ Devolvemos la respuesta final personalizada
+    return NextResponse.json({ respuesta: respuestaFinal });
+  } catch (error) {
+    console.error('❌ Error en handler principal:', error);
+    return NextResponse.json({ 
+      error: 'Error al procesar la solicitud',
+      details: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 });
   }
-
-  const userId = req.headers.get('x-user-id') || 'anonimo';
-  const lastTema = obtenerUltimoTema(userId);
-  let contexto = await detectContext(message, userId, lastTema);
-  
-  // 🧠 Si no se pudo detectar el tema (GPT dijo "general"), usamos el último
-if (contexto === 'general' && lastTema) {
-  console.log("⚠️ Tema no reconocido, usando último contexto:", lastTema);
-  contexto = lastTema;
-}
-  
-  const temas = [contexto];
-
-  console.log("🧠 Contexto detectado:", contexto);
-  console.log("🗂️ Último mensaje del usuario:", obtenerUltimoMensaje(userId));
-
-
-  const resultados = await Promise.all(
-    temas.map((tema) => ejecutarBloque(tema, empresa_id, userId, message))
-  );
-
-  const respuesta = resultados.filter(Boolean).join("\n");
-
-// 🧠 Guardamos el mensaje en la memoria conversacional
-guardarInteraccion(userId, message, respuesta, contexto);
-
-// 🔐 Simulación: puesto del usuario (en futuro, viene desde BD o token)
-const puestoId = 'gerencia' // Cambialo por 'gerencia', 'admin', etc. para testear
-
-// 🎨 Adaptamos el estilo de la respuesta al puesto del usuario
-const respuestaFinal = adaptarRespuestaPorPuesto(respuesta, puestoId);
-
-// ✅ Devolvemos la respuesta final personalizada
-return NextResponse.json({ respuesta: respuestaFinal });
 }
 export { handler as POST };
