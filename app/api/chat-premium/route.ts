@@ -224,6 +224,7 @@ const handler = async (req: NextRequest) => {
   } catch (error) {
     console.error('❌ Error en handler principal:', error);
     return NextResponse.json({ 
+      respuesta: '🚨 Disculpá, estoy teniendo problemas para acceder a los datos del stock. Por favor, intentá nuevamente en unos momentos.',
       error: 'Error al procesar la solicitud',
       details: error instanceof Error ? error.message : 'Error desconocido' 
     }, { status: 500 });
