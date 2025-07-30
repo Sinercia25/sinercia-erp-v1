@@ -137,8 +137,6 @@ Terminá con una sugerencia útil.
   return completion.choices[0].message?.content || "No se pudo generar respuesta."
 }
 
-console.log("🧠 Detected consulta directa:", esConsultaDirectaStock(mensaje))
-
     case "finanzas": {
       const periodo = interpretarTiempoExtendido(mensaje, user_id) ?? await obtenerUltimoPeriodo(user_id);
       if (!periodo) return `No se detectó ningún período. Probá con "¿Cuánto gastamos en julio?"`;
