@@ -10,6 +10,8 @@ import {guardarInteraccion, obtenerUltimoMensaje, obtenerUltimoTema} from '@/lib
 import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido'
 import { generarSugerenciaContextual } from '@/lib/memoriaConversacional/sugerenciasContextuales'
 import { generarOpcionesPorContexto } from '@/lib/memoriaConversacional/sugerenciasOpcionales'
+import { generarSugerenciaConGPT } from '@/lib/sugerencias/generarSugerenciaConGPT';
+
 
 
 
@@ -17,7 +19,7 @@ import { generarOpcionesPorContexto } from '@/lib/memoriaConversacional/sugerenc
 import { detectContext } from '@/lib/detectores/detectContext'
 import { interpretarTiempoExtendido } from '@/lib/periodos/interpretarTiempoExtendido'
 import { obtenerPeriodoValido } from '@/lib/periodos/obtenerPeriodoValido'
-import { guardarPeriodo } from '@/lib/periodos/periodo-memory'
+import { guardarPeriodo, obtenerUltimoPeriodo } from '@/lib/periodos/periodo-memory'
 
 
 // 🛠️ UTILIDADES GENERALES
@@ -71,9 +73,10 @@ async function ejecutarBloque(
     return `${resumenTexto}\n\n${sugerenciaGPT}`
   }
 
-  const respuesta = generarRespuestaSimpleVentas(resumen)
+  {const respuesta = generarRespuestaSimpleVentas(resumen)
   const opciones = generarOpcionesPorContexto('ventas') // rápido y natural
   return `${respuesta}\n\n${opciones}`
+  }
 }
 
 

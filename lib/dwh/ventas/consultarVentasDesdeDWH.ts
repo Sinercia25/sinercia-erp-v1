@@ -1,7 +1,7 @@
 // 📁 lib/consultas/ventas/consultarVentasDesdeDWH.ts
 
 import { Pool } from 'pg';
-import { PeriodoDetectado } from '@/lib/memory/periodo-memory';
+import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido';
 
 // 🧠 Conexión al Data Warehouse (DWH)
 const dwhPool = new Pool({

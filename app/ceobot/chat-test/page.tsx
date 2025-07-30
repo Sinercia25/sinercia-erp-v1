@@ -22,10 +22,10 @@ export default function ChatTestPage() {
     'Registra esta factura'
   ]);
 
-  const userMenuRef = useRef(null);
-  const carouselRef = useRef(null);
-  const sidebarRef = useRef(null);
-  const bottomRef = useRef(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

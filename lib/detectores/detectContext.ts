@@ -13,7 +13,7 @@ import { detectarTemaConGPT } from '@/lib/detectores/detectarTemaGPT' // GPT fal
 export async function detectContext(
   texto: string,
   userId: string,
-  lastTema: string
+  lastTema: string | null
 ): Promise<string> {
   const lower = texto.toLowerCase()
 
@@ -31,7 +31,7 @@ export async function detectContext(
   ]
 
 // Si el mensaje contiene un período, y NO se detectó un nuevo módulo, mantenemos el módulo anterior
-if (periodo && !moduloDetectado && modulosValidos.includes(lastTema)) {
+if (periodo && !moduloDetectado && lastTema && modulosValidos.includes(lastTema)) {
   return lastTema
 }
 

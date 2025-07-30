@@ -1,0 +1,58 @@
+name: sinercia-erp
+region: nyc
+services:
+- build_command: npm run build
+  environment_slug: node-js
+  envs:
+  - key: NODE_ENV
+    scope: RUN_AND_BUILD_TIME
+    value: production
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: OPENAI_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: SUPABASE_HOST
+    scope: RUN_TIME
+    type: SECRET
+  - key: SUPABASE_PORT
+    scope: RUN_TIME
+    type: SECRET
+  - key: SUPABASE_DB
+    scope: RUN_TIME
+    type: SECRET
+  - key: SUPABASE_USER
+    scope: RUN_TIME
+    type: SECRET
+  - key: SUPABASE_PASS
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_HOST
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_PORT
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_NAME
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_USER
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_PASSWORD
+    scope: RUN_TIME
+    type: SECRET
+  - key: DWH_URL
+    scope: RUN_TIME
+    type: SECRET
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: TU_USUARIO_GITHUB/sinercia-erp-v1
+  http_port: 3000
+  instance_count: 1
+  instance_size_slug: basic-xs
+  name: sinercia-erp-web
+  run_command: npm start
+  source_dir: /

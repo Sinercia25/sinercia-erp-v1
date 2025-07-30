@@ -7,6 +7,7 @@ type ResumenVentas = {
   mejorDia: string
   sucursalDestacada: string
   canalPrincipal: string
+  periodo: string
   comparativoAnterior?: {
     total: number
     variacionPorcentual: number
@@ -26,7 +27,8 @@ export async function obtenerResumenVentas(
       ticketPromedio: 0,
       mejorDia: 'Sin datos',
       sucursalDestacada: 'Sin datos',
-      canalPrincipal: 'Sin datos'
+      canalPrincipal: 'Sin datos',
+      periodo: periodo.descripcion || 'Sin período válido'
     }
   }
 
@@ -88,16 +90,16 @@ const periodoDescripcion = periodo.descripcion || 'el período seleccionado'
 
   
   return {
-  total,
-  ticketPromedio,
-  mejorDia,
-  sucursalDestacada: 'Sin datos',
-  canalPrincipal: 'Sin datos',
-  periodo: periodoDescripcion,
-  comparativoAnterior: {
-    total: totalAnterior,
-    variacionPorcentual: Number(variacion.toFixed(2))
+    total,
+    ticketPromedio,
+    mejorDia,
+    sucursalDestacada: 'Sin datos',
+    canalPrincipal: 'Sin datos',
+    periodo: periodoDescripcion,
+    comparativoAnterior: {
+      total: totalAnterior,
+      variacionPorcentual: Number(variacion.toFixed(2))
+    }
   }
-}
 
 }

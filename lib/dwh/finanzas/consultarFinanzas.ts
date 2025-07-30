@@ -1,7 +1,7 @@
 // 📁 lib/consultas/finanzas/consultarFinanzas.ts
 
 import { Pool } from 'pg';
-import { PeriodoDetectado } from '@/lib/memory/periodo-memory';
+import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido';
 
 const dwhPool = new Pool({
   connectionString: process.env.DWH_URL,

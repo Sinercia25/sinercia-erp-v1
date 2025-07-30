@@ -2,7 +2,7 @@
 // Devuelve los ingresos o egresos totales agrupados por categoría para una empresa y período
 
 import { Pool } from 'pg';
-import { PeriodoDetectado } from '@/lib/memory/periodo-memory';
+import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido';
 
 // 🌐 Conexión al DWH
 const dwhPool = new Pool({

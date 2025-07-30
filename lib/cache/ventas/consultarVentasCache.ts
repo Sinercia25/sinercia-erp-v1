@@ -2,7 +2,7 @@
 
 import { getCache, setCache } from '@/lib/cache/cache';
 import { consultarVentasDesdeDWH } from '@/lib/dwh/ventas/consultarVentasDesdeDWH';
-import { PeriodoDetectado } from '@/lib/memory/periodo-memory';
+import { PeriodoDetectado } from '@/lib/periodos/interpretarTiempoExtendido';
 
 /**
  * 📦 consultarVentas
